@@ -43,7 +43,7 @@ func (app *application) run(mux http.Handler) error {
 		IdleTimeout:  time.Minute,
 	}
 
-	app.logger.Infow("server has started at port", "addr", app.config.apiURL, "env", app.config.env)
+	app.logger.Infow("invoicing server has started at port", "addr", app.config.apiURL, "env", app.config.env)
 	err := srv.ListenAndServe()
 
 	if !errors.Is(err, http.ErrServerClosed) {
