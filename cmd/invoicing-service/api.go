@@ -54,7 +54,7 @@ func (app *application) run(mux http.Handler) error {
 		return err
 	}
 
-	app.logger.Infow("server has stopped", "addr", app.config.addr, "env", app.config.env)
+	app.logger.Infow("invoicing server has stopped", "addr", app.config.addr, "env", app.config.env)
 
 	return nil
 }
