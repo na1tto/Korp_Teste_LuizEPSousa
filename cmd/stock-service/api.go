@@ -7,18 +7,28 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/naitto/korperp-challenge/internal/store"
 	"go.uber.org/zap"
 )
 
 type application struct {
 	config serverConfig
+	store  store.Storage
 	logger *zap.SugaredLogger
 }
 
 type serverConfig struct {
 	addr   string
+	db     dbConfig
 	env    string
 	apiURL string
+}
+
+type dbConfig struct {
+	addr         string
+	maxOpenConns int
+	maxIdleConns int
+	maxIdleTime  string
 }
 
 func (app *application) mount() http.Handler {
