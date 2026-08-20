@@ -9,7 +9,7 @@ import (
 var (
 	ErrNotFound          = errors.New("record not found")
 	ErrConflict          = errors.New("record already exists")
-	ErrInsufficientStock = errors.New("Insufficient stock for the product.")
+	ErrInsufficientStock = errors.New("insufficient stock for the product.")
 )
 
 type Storage struct {
