@@ -9,7 +9,7 @@ import (
 
 type Product struct {
 	ID          int64     `json:"id"`
-	Code        string    `json:"codigo"`
+	Code        string    `json:"code"`
 	Description string    `json:"description"`
 	Balance     int       `json:"balance"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -22,7 +22,7 @@ type ProductStore struct {
 
 func (s *ProductStore) Create(ctx context.Context, p *Product) error {
 	query := `
-		INSERT INTO products (coce, description, balance)
+		INSERT INTO products (code, description, balance)
 		VALUES ($1, $2, $3)
 		RETURNING id, created_at, updated_at
 	`
@@ -31,7 +31,7 @@ func (s *ProductStore) Create(ctx context.Context, p *Product) error {
 }
 
 func (s *ProductStore) GetAll(ctx context.Context) ([]Product, error) {
-	query := `SELECT id, voce, description, balance, created_at, updated_at FROM products ORDER BY id ASC`
+	query := `SELECT id, code, description, balance, created_at, updated_at FROM products ORDER BY id ASC`
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (s *ProductStore) GetByID(ctx context.Context, id int64) (*Product, error) 
 func (s *ProductStore) DeductStock(ctx context.Context, productID int64, quantity int) error {
 	query := `
 		UPDATE products
-		SET balance = saldo - $1, updated_at = NOW()
+		SET balance = balance - $1, updated_at = NOW()
 		WHERE id = $2 AND balance >= $1
 	`
 	res, err := s.db.ExecContext(ctx, query, quantity, productID)
