@@ -10,7 +10,7 @@ var (
 	ErrInsufficientStock       = errors.New("insufficient stock balance for one or more items")
 )
 
-type Stockclient struct {
+type StockClient struct {
 	baseURL    string
 	httpClient *http.Client
 }
