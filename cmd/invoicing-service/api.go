@@ -12,16 +12,18 @@ import (
 )
 
 type application struct {
-	config serverConfig
-	store  store.Storage
-	logger *zap.SugaredLogger
+	config      serverConfig
+	store       store.Storage
+	stockClient *StockClient
+	logger      *zap.SugaredLogger
 }
 
 type serverConfig struct {
-	addr   string
-	db     dbConfig
-	env    string
-	apiURL string
+	addr               string
+	db                 dbConfig
+	env                string
+	apiURL             string
+	stockClientBaseURL string
 }
 
 type dbConfig struct {
@@ -38,6 +40,13 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		r.Route("/invoices", func(r chi.Router) {
+			r.Get("/", app.listInvoicesHandler)
+			r.Post("/", app.createInvoiceHandler)
+			r.Get("/{id}", app.getInvoiceHandler)
+			r.Post("/{id}/print", app.printInvoiceHandler)
+		})
 	})
 
 	return r
