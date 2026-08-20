@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"time"
 )
 
 var (
@@ -13,4 +18,52 @@ var (
 type StockClient struct {
 	baseURL    string
 	httpClient *http.Client
+}
+
+func NewStockclient(baseURL string) *StockClient {
+	return &StockClient{
+		baseURL: baseURL,
+		httpClient: &http.Client{
+			Timeout: 5 * time.Second, // resilience timeout
+		},
+	}
+}
+
+type DeductItemRequest struct {
+	ProductID int64 `json:"product_id"`
+	Quantity  int   `json:"quantity"`
+}
+
+type DeductRequest struct {
+	Items []DeductItemRequest `json:"items"`
+}
+
+func (c *StockClient) DeductStock(ctx context.Context, items []DeductItemRequest) error {
+	payload, err := json.Marshal(DeductRequest{Items: items})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/products/deduct", c.baseURL), bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return ErrStockServiceUnavailable
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		return ErrInsufficientStock
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected stock service error: status %d", resp.StatusCode)
+	}
+
+	return nil
 }
