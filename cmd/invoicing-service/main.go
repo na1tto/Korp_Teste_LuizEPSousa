@@ -12,9 +12,9 @@ const version = "0.0.1"
 
 func main() {
 	cfg := serverConfig{
-		addr:   env.GetString("INVOICING_ADDR", ":3001"),
+		addr:   env.GetString("INVOICING_ADDR", ":3002"),
 		env:    env.GetString("ENV", "DEVELOPMENT"),
-		apiURL: env.GetString("INVOICING_EXTERNAL_URL", "localhost:3000"),
+		apiURL: env.GetString("INVOICING_EXTERNAL_URL", "localhost:3002"),
 		db: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost:5432/korp_db?sslmode=disable"),
 			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
