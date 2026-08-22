@@ -7,17 +7,24 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("record not found")
-	ErrConflict          = errors.New("record already exists")
-	ErrInsufficientStock = errors.New("insufficient stock for the product.")
+	ErrNotFound            = errors.New("record not found")
+	ErrConflict            = errors.New("record already exists")
+	ErrInsufficientStock   = errors.New("insufficient stock for the product")
+	ErrInvalidDeduction    = errors.New("product_id and quantity must be greater than zero")
+	ErrIdempotencyConflict = errors.New("request_id was already used with different items")
 )
+
+type StockDeduction struct {
+	ProductID int64 `json:"product_id"`
+	Quantity  int   `json:"quantity"`
+}
 
 type Storage struct {
 	Products interface {
 		Create(ctx context.Context, p *Product) error
 		GetAll(ctx context.Context) ([]Product, error)
 		GetByID(ctx context.Context, id int64) (*Product, error)
-		DeductStock(ctx context.Context, productID int64, quantity int) error
+		DeductStock(ctx context.Context, requestID string, items []StockDeduction) error
 	}
 	Invoices interface {
 		Create(ctx context.Context, inv *Invoice, items []InvoiceItem) error

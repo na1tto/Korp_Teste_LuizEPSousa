@@ -81,6 +81,9 @@ func (s *InvoiceStore) GetAll(ctx context.Context) ([]Invoice, error) {
 		}
 		invoices = append(invoices, inv)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return invoices, nil
 }
 
@@ -110,12 +113,25 @@ func (s *InvoiceStore) GetByID(ctx context.Context, id int64) (*InvoiceWithItems
 		}
 		res.Items = append(res.Items, item)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return &res, nil
 }
 
 func (s *InvoiceStore) UpdateStatus(ctx context.Context, id int64, status string) error {
-	query := `UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2`
-	_, err := s.db.ExecContext(ctx, query, status, id)
-	return err
+	query := `UPDATE invoices SET status = $1, updated_at = NOW() WHERE id = $2 AND status = 'Open'`
+	res, err := s.db.ExecContext(ctx, query, status, id)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrConflict
+	}
+	return nil
 }
