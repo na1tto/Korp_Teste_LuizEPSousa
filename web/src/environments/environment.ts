@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  stockApiUrl: 'http://localhost:3001/v1',
-  invoicingApiUrl: 'http://localhost:3002/v1'
+  stockApiUrl: 'https://stock-service-659661883921.us-east1.run.app',
+  invoicingApiUrl: 'https://invoicing-service-659661883921.us-east1.run.app'
 }
