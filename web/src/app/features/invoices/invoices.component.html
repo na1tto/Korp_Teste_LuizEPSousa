@@ -2,11 +2,11 @@
   <h2>Cadastro de Notas Fiscais</h2>
 
   <!-- Feedbacks visuais -->
-  <div *ngIf="errorMessage" class="alert alert-danger">
-    {{ errorMessage }}
+  <div *ngIf="errorMessage()" class="alert alert-danger">
+    {{ errorMessage() }}
   </div>
-  <div *ngIf="successMessage" class="alert alert-success">
-    {{ successMessage }}
+  <div *ngIf="successMessage()" class="alert alert-success">
+    {{ successMessage() }}
   </div>
 
   <!-- Formulário de emissão de nota fiscal -->
@@ -19,7 +19,7 @@
           <label>Produto *</label>
           <select formControlName="product_id">
             <option value="" disabled>Selecione um produto</option>
-            <option *ngFor="let prod of products" [ngValue]="prod.id">
+            <option *ngFor="let prod of products()" [ngValue]="prod.id">
               {{ prod.code }} - {{ prod.description }} (Saldo: {{ prod.balance }})
             </option>
           </select>
@@ -44,9 +44,9 @@
     <div class="form-actions">
       <button type="button" class="btn-add" (click)="addItem()">+ Adicionar Produto</button>
 
-      <button type="submit" class="btn-submit" [disabled]="invoiceForm.invalid || isLoading">
-        <span *ngIf="!isLoading">Gerar Nota Fiscal</span>
-        <span *ngIf="isLoading">Processando...</span>
+      <button type="submit" class="btn-submit" [disabled]="invoiceForm.invalid || isLoading()">
+        <span *ngIf="!isLoading()">Gerar Nota Fiscal</span>
+        <span *ngIf="isLoading()">Processando...</span>
       </button>
     </div>
   </form>
@@ -66,7 +66,7 @@
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let invoice of (invoices$ | async) || []">
+      <tr *ngFor="let invoice of invoices()">
         <td>#{{ invoice.sequential_number }}</td>
         <td>
           <span
@@ -84,21 +84,21 @@
             class="action-button btn-print"
             [disabled]="
               invoice.status !== 'Open' ||
-              printingInvoiceId !== null ||
-              deletingInvoiceId !== null ||
-              invoicePendingDeletionId !== null
+              printingInvoiceId() !== null ||
+              deletingInvoiceId() !== null ||
+              invoicePendingDeletionId() !== null
             "
             (click)="printInvoice(invoice)"
           >
-            <span *ngIf="printingInvoiceId !== invoice.id">
+            <span *ngIf="printingInvoiceId() !== invoice.id">
               {{ invoice.status === 'Open' ? 'Imprimir' : 'Já impressa' }}
             </span>
-            <span *ngIf="printingInvoiceId === invoice.id" class="spinner-container">
+            <span *ngIf="printingInvoiceId() === invoice.id" class="spinner-container">
               <span class="spinner"></span> Processando...
             </span>
           </button>
 
-          <ng-container *ngIf="invoicePendingDeletionId === invoice.id; else deleteButton">
+          <ng-container *ngIf="invoicePendingDeletionId() === invoice.id; else deleteButton">
             <div
               class="delete-confirmation"
               role="group"
@@ -128,8 +128,8 @@
               class="action-button btn-delete"
               [disabled]="
                 invoice.status !== 'Open' ||
-                printingInvoiceId !== null ||
-                deletingInvoiceId !== null
+                printingInvoiceId() !== null ||
+                deletingInvoiceId() !== null
               "
               [title]="
                 invoice.status === 'Open'
@@ -138,15 +138,15 @@
               "
               (click)="requestInvoiceDeletion(invoice)"
             >
-              <span *ngIf="deletingInvoiceId !== invoice.id">Excluir</span>
-              <span *ngIf="deletingInvoiceId === invoice.id" class="spinner-container">
+              <span *ngIf="deletingInvoiceId() !== invoice.id">Excluir</span>
+              <span *ngIf="deletingInvoiceId() === invoice.id" class="spinner-container">
                 <span class="spinner"></span> Excluindo...
               </span>
             </button>
           </ng-template>
         </td>
       </tr>
-      <tr *ngIf="(invoices$ | async)?.length === 0">
+      <tr *ngIf="invoices().length === 0">
         <td colspan="4" class="empty-state">Nenhuma nota fiscal registrada até o momento.</td>
       </tr>
     </tbody>

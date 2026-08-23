@@ -1,12 +1,11 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { finalize, forkJoin, switchMap } from 'rxjs';
 import { InvoiceService } from '../../core/services/invoice.service';
 import { ProductService } from '../../core/services/product.service';
 import { CreateInvoicePayload, Invoice, InvoiceStatus } from '../../core/models/invoice.model';
-import { Product } from '../../core/models/product.model';
 
 @Component({
   selector: 'app-invoices',
@@ -22,15 +21,15 @@ export class InvoicesComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
 
   public invoiceForm!: FormGroup;
-  public invoices$ = this.invoiceService.invoices$;
-  public products: Product[] = [];
+  public readonly invoices = toSignal(this.invoiceService.invoices$, { initialValue: [] });
+  public readonly products = toSignal(this.productService.products$, { initialValue: [] });
 
-  public isLoading = false;
-  public printingInvoiceId: number | null = null;
-  public deletingInvoiceId: number | null = null;
-  public invoicePendingDeletionId: number | null = null;
-  public errorMessage: string | null = null;
-  public successMessage: string | null = null;
+  public readonly isLoading = signal(false);
+  public readonly printingInvoiceId = signal<number | null>(null);
+  public readonly deletingInvoiceId = signal<number | null>(null);
+  public readonly invoicePendingDeletionId = signal<number | null>(null);
+  public readonly errorMessage = signal<string | null>(null);
+  public readonly successMessage = signal<string | null>(null);
 
   ngOnInit(): void {
     this.initForm();
@@ -54,22 +53,18 @@ export class InvoicesComponent implements OnInit {
   }
 
   private loadInitialData(): void {
-    this.isLoading = true;
-
-    this.productService.products$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((products) => (this.products = products));
+    this.isLoading.set(true);
 
     forkJoin({
       products: this.productService.getProducts(),
       invoices: this.invoiceService.getInvoices(),
     })
       .pipe(
-        finalize(() => (this.isLoading = false)),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
@@ -102,9 +97,9 @@ export class InvoicesComponent implements OnInit {
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = null;
-    this.successMessage = null;
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
 
     const payload: CreateInvoicePayload = {
       items: this.items.getRawValue().map((item) => ({
@@ -116,16 +111,16 @@ export class InvoicesComponent implements OnInit {
     this.invoiceService
       .createInvoice(payload)
       .pipe(
-        finalize(() => (this.isLoading = false)),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => {
-          this.successMessage = 'Nota fiscal cadastrada com sucesso. Status: aberta.';
+          this.successMessage.set('Nota fiscal cadastrada com sucesso. Status: aberta.');
           this.items.clear();
           this.addItem();
         },
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
@@ -135,70 +130,74 @@ export class InvoicesComponent implements OnInit {
   public printInvoice(invoice: Invoice): void {
     if (
       invoice.status !== 'Open' ||
-      this.printingInvoiceId !== null ||
-      this.deletingInvoiceId !== null
+      this.printingInvoiceId() !== null ||
+      this.deletingInvoiceId() !== null
     ) {
       return;
     }
 
-    this.printingInvoiceId = invoice.id;
-    this.errorMessage = null;
-    this.successMessage = null;
+    this.printingInvoiceId.set(invoice.id);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
 
     this.invoiceService
       .printInvoice(invoice.id)
       .pipe(
         switchMap(() => this.productService.getProducts()),
-        finalize(() => (this.printingInvoiceId = null)),
+        finalize(() => this.printingInvoiceId.set(null)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => {
-          this.successMessage = `Nota fiscal nº ${invoice.sequential_number} impressa e fechada com sucesso.`;
+          this.successMessage.set(
+            `Nota fiscal nº ${invoice.sequential_number} impressa e fechada com sucesso.`,
+          );
         },
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
   public requestInvoiceDeletion(invoice: Invoice): void {
     if (
       invoice.status !== 'Open' ||
-      this.printingInvoiceId !== null ||
-      this.deletingInvoiceId !== null
+      this.printingInvoiceId() !== null ||
+      this.deletingInvoiceId() !== null
     ) {
       return;
     }
 
-    this.errorMessage = null;
-    this.successMessage = null;
-    this.invoicePendingDeletionId = invoice.id;
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
+    this.invoicePendingDeletionId.set(invoice.id);
   }
 
   public cancelInvoiceDeletion(): void {
-    this.invoicePendingDeletionId = null;
+    this.invoicePendingDeletionId.set(null);
   }
 
   public confirmInvoiceDeletion(invoice: Invoice): void {
-    if (this.invoicePendingDeletionId !== invoice.id || invoice.status !== 'Open') {
+    if (this.invoicePendingDeletionId() !== invoice.id || invoice.status !== 'Open') {
       return;
     }
 
-    this.invoicePendingDeletionId = null;
-    this.deletingInvoiceId = invoice.id;
-    this.errorMessage = null;
-    this.successMessage = null;
+    this.invoicePendingDeletionId.set(null);
+    this.deletingInvoiceId.set(invoice.id);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
 
     this.invoiceService
       .deleteInvoice(invoice.id)
       .pipe(
-        finalize(() => (this.deletingInvoiceId = null)),
+        finalize(() => this.deletingInvoiceId.set(null)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => {
-          this.successMessage = `Nota fiscal nº ${invoice.sequential_number} excluída com sucesso.`;
+          this.successMessage.set(
+            `Nota fiscal nº ${invoice.sequential_number} excluída com sucesso.`,
+          );
         },
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
@@ -207,7 +206,7 @@ export class InvoicesComponent implements OnInit {
   }
 
   public getProductDescription(productId: number): string {
-    const prod = this.products.find((p) => p.id === productId);
+    const prod = this.products().find((p) => p.id === productId);
     return prod ? `${prod.code} - ${prod.description}` : `Produto #${productId}`;
   }
 }

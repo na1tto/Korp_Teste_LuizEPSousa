@@ -1,7 +1,7 @@
-import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, DestroyRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { ProductService } from '../../core/services/product.service';
 import { CreateProductPayload } from '../../core/models/product.model';
@@ -19,10 +19,10 @@ export class ProductsComponent implements OnInit {
   private destroyRef = inject(DestroyRef); // Modern Unsubscribe Management
 
   public productForm!: FormGroup;
-  public products$ = this.productService.products$;
-  public isLoading = false;
-  public errorMessage: string | null = null;
-  public successMessage: string | null = null;
+  public readonly products = toSignal(this.productService.products$, { initialValue: [] });
+  public readonly isLoading = signal(false);
+  public readonly errorMessage = signal<string | null>(null);
+  public readonly successMessage = signal<string | null>(null);
 
   ngOnInit(): void {
     this.initForm();
@@ -44,15 +44,15 @@ export class ProductsComponent implements OnInit {
    * Startup cycle: searching for products using takeUntilDestroyed to prevent leaks
    */
   private loadProducts(): void {
-    this.isLoading = true;
+    this.isLoading.set(true);
     this.productService
       .getProducts()
       .pipe(
-        finalize(() => (this.isLoading = false)),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
@@ -65,9 +65,9 @@ export class ProductsComponent implements OnInit {
       return;
     }
 
-    this.isLoading = true;
-    this.errorMessage = null;
-    this.successMessage = null;
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
+    this.successMessage.set(null);
 
     const formValue = this.productForm.getRawValue();
     const payload: CreateProductPayload = {
@@ -79,15 +79,15 @@ export class ProductsComponent implements OnInit {
     this.productService
       .createProduct(payload)
       .pipe(
-        finalize(() => (this.isLoading = false)),
+        finalize(() => this.isLoading.set(false)),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => {
-          this.successMessage = 'Produto cadastrado com sucesso.';
+          this.successMessage.set('Produto cadastrado com sucesso.');
           this.productForm.reset({ balance: 0 });
         },
-        error: (error: Error) => (this.errorMessage = error.message),
+        error: (error: Error) => this.errorMessage.set(error.message),
       });
   }
 
