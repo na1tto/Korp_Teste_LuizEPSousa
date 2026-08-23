@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/naitto/korperp-challenge/internal/env"
 	"github.com/naitto/korperp-challenge/internal/store"
 	"go.uber.org/zap"
 )
@@ -42,7 +43,7 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Logger)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:4200"},
+		AllowedOrigins:   []string{"http://localhost:4200", env.GetString("CORS_FRONTEND_ALLOWED", "")},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
