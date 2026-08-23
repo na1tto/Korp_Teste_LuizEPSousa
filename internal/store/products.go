@@ -78,8 +78,8 @@ func (s *ProductStore) GetByID(ctx context.Context, id int64) (*Product, error) 
 	return &p, nil
 }
 
-func (s *ProductStore) DeductStock(ctx context.Context, requestID string, items []StockDeduction) error {
-	if requestID == "" || len(items) == 0 {
+func (s *ProductStore) DeductStock(ctx context.Context, invoiceID int64, requestID string, items []StockDeduction) error {
+	if invoiceID <= 0 || requestID != fmt.Sprintf("invoice:%d", invoiceID) || len(items) == 0 {
 		return ErrInvalidDeduction
 	}
 	for _, item := range items {
@@ -98,6 +98,15 @@ func (s *ProductStore) DeductStock(ctx context.Context, requestID string, items 
 		return err
 	}
 	defer tx.Rollback()
+
+	var invoiceStatus string
+	err = tx.QueryRowContext(ctx, `SELECT status FROM invoices WHERE id = $1 FOR UPDATE`, invoiceID).Scan(&invoiceStatus)
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && invoiceStatus != "Open") {
+		return ErrInvoiceStateConflict
+	}
+	if err != nil {
+		return err
+	}
 
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO stock_deductions (request_id, payload_hash)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"sort"
 	"time"
 )
 
@@ -33,11 +35,47 @@ type InvoiceStore struct {
 }
 
 func (s *InvoiceStore) Create(ctx context.Context, inv *Invoice, items []InvoiceItem) error {
+	productIDs, required, err := invoiceRequirements(items)
+	if err != nil {
+		return err
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+
+	for _, productID := range productIDs {
+		var balance int64
+		err := tx.QueryRowContext(ctx, `SELECT balance FROM products WHERE id = $1 FOR UPDATE`, productID).Scan(&balance)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+
+		var reserved int64
+		err = tx.QueryRowContext(ctx, `
+			SELECT COALESCE(SUM(ii.quantity), 0)
+			FROM invoice_items ii
+			JOIN invoices i ON i.id = ii.invoice_id
+			WHERE ii.product_id = $1
+			  AND i.status = 'Open'
+			  AND NOT EXISTS (
+				SELECT 1
+				FROM stock_deductions sd
+				WHERE sd.request_id = 'invoice:' || i.id::text
+			  )
+		`, productID).Scan(&reserved)
+		if err != nil {
+			return err
+		}
+		if required[productID] > balance-reserved {
+			return ErrInsufficientStock
+		}
+	}
 
 	queryInv := `
 		INSERT INTO invoices (status)
@@ -63,6 +101,32 @@ func (s *InvoiceStore) Create(ctx context.Context, inv *Invoice, items []Invoice
 	}
 
 	return tx.Commit()
+}
+
+func invoiceRequirements(items []InvoiceItem) ([]int64, map[int64]int64, error) {
+	if len(items) == 0 {
+		return nil, nil, ErrInvalidInvoice
+	}
+
+	required := make(map[int64]int64, len(items))
+	const maxInt64 = int64(^uint64(0) >> 1)
+	for _, item := range items {
+		if item.ProductID <= 0 || item.Quantity <= 0 {
+			return nil, nil, ErrInvalidInvoice
+		}
+		quantity := int64(item.Quantity)
+		if quantity > maxInt64-required[item.ProductID] {
+			return nil, nil, ErrInvalidInvoice
+		}
+		required[item.ProductID] += quantity
+	}
+
+	productIDs := make([]int64, 0, len(required))
+	for productID := range required {
+		productIDs = append(productIDs, productID)
+	}
+	sort.Slice(productIDs, func(i, j int) bool { return productIDs[i] < productIDs[j] })
+	return productIDs, required, nil
 }
 
 func (s *InvoiceStore) GetAll(ctx context.Context) ([]Invoice, error) {
@@ -134,4 +198,46 @@ func (s *InvoiceStore) UpdateStatus(ctx context.Context, id int64, status string
 		return ErrConflict
 	}
 	return nil
+}
+
+func (s *InvoiceStore) Delete(ctx context.Context, id int64) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var status string
+	err = tx.QueryRowContext(ctx, `SELECT status FROM invoices WHERE id = $1 FOR UPDATE`, id).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if status != "Open" {
+		return ErrConflict
+	}
+
+	var deducted bool
+	requestID := fmt.Sprintf("invoice:%d", id)
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM stock_deductions WHERE request_id = $1)`, requestID).Scan(&deducted); err != nil {
+		return err
+	}
+	if deducted {
+		return ErrConflict
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM invoices WHERE id = $1 AND status = 'Open'`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows != 1 {
+		return ErrConflict
+	}
+	return tx.Commit()
 }

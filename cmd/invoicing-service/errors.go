@@ -16,14 +16,16 @@ const (
 )
 
 var (
-	errRouteNotFound       = errors.New("route not found")
-	errInvoiceItemsEmpty   = errors.New("the invoice must contain at least one item")
-	errInvoiceItemInvalid  = errors.New("each item must have a valid product_id and quantity")
-	errInvalidInvoiceID    = errors.New("invalid id")
-	errInvoiceNotOpen      = errors.New("only invoices with the status 'Open' can be printed")
-	errInvoiceStock        = errors.New("the invoice could not be issued: insufficient stock")
-	errInvoiceProductGone  = errors.New("the invoice contains a product that no longer exists")
-	errInvoiceStateChanged = errors.New("the invoice is no longer Open")
+	errRouteNotFound         = errors.New("route not found")
+	errInvoiceItemsEmpty     = errors.New("the invoice must contain at least one item")
+	errInvoiceItemInvalid    = errors.New("each item must have a valid product_id and quantity")
+	errInvalidInvoiceID      = errors.New("invalid id")
+	errInvoiceNotOpen        = errors.New("only invoices with the status 'Open' can be printed")
+	errInvoiceStock          = errors.New("the invoice could not be issued: insufficient stock")
+	errInvoiceCreationStock  = errors.New("the invoice could not be created: insufficient available stock")
+	errInvoiceProductGone    = errors.New("the invoice contains a product that no longer exists")
+	errInvoiceStateChanged   = errors.New("the invoice is no longer Open")
+	errInvoiceDeleteConflict = errors.New("only Open invoices that have not been deducted can be deleted")
 )
 
 // handling errors internaly through application functions

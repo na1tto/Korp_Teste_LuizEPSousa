@@ -56,6 +56,7 @@ func (app *application) mount() http.Handler {
 			r.Get("/", app.listInvoicesHandler)
 			r.Post("/", app.createInvoiceHandler)
 			r.Get("/{id}", app.getInvoiceHandler)
+			r.Delete("/{id}", app.deleteInvoiceHandler)
 			r.Post("/{id}/print", app.printInvoiceHandler)
 		})
 	})

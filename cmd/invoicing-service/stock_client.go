@@ -14,6 +14,7 @@ var (
 	ErrStockServiceUnavailable = errors.New("stock service is temporarily unavailable")
 	ErrInsufficientStock       = errors.New("insufficient stock balance for one or more items")
 	ErrProductNotFound         = errors.New("one or more products no longer exist")
+	ErrInvoiceStateConflict    = errors.New("invoice is not available for stock deduction")
 )
 
 type StockClient struct {
@@ -36,12 +37,13 @@ type DeductItemRequest struct {
 }
 
 type DeductRequest struct {
+	InvoiceID int64               `json:"invoice_id"`
 	RequestID string              `json:"request_id"`
 	Items     []DeductItemRequest `json:"items"`
 }
 
-func (c *StockClient) DeductStock(ctx context.Context, requestID string, items []DeductItemRequest) error {
-	payload, err := json.Marshal(DeductRequest{RequestID: requestID, Items: items})
+func (c *StockClient) DeductStock(ctx context.Context, invoiceID int64, requestID string, items []DeductItemRequest) error {
+	payload, err := json.Marshal(DeductRequest{InvoiceID: invoiceID, RequestID: requestID, Items: items})
 	if err != nil {
 		return err
 	}
@@ -64,6 +66,9 @@ func (c *StockClient) DeductStock(ctx context.Context, requestID string, items [
 	}
 	if resp.StatusCode == http.StatusNotFound {
 		return ErrProductNotFound
+	}
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		return ErrInvoiceStateConflict
 	}
 
 	if resp.StatusCode != http.StatusOK {

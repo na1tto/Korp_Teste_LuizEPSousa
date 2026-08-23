@@ -70,6 +70,7 @@ func (app *application) listProductsHandler(w http.ResponseWriter, r *http.Reque
 }
 
 type DeductStockPayload struct {
+	InvoiceID int64               `json:"invoice_id"`
 	RequestID string              `json:"request_id"`
 	Items     []DeductItemPayload `json:"items"`
 }
@@ -82,7 +83,7 @@ func (app *application) deductStockHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if payload.RequestID == "" || len(payload.Items) == 0 {
+	if payload.InvoiceID <= 0 || payload.RequestID == "" || len(payload.Items) == 0 {
 		app.badRequestResponse(w, r, errDeductionFieldsMissing)
 		return
 	}
@@ -93,7 +94,7 @@ func (app *application) deductStockHandler(w http.ResponseWriter, r *http.Reques
 	}
 
 	ctx := r.Context()
-	if err := app.store.Products.DeductStock(ctx, payload.RequestID, items); err != nil {
+	if err := app.store.Products.DeductStock(ctx, payload.InvoiceID, payload.RequestID, items); err != nil {
 		switch {
 		case errors.Is(err, store.ErrInvalidDeduction):
 			app.badRequestResponse(w, r, err)
@@ -102,6 +103,8 @@ func (app *application) deductStockHandler(w http.ResponseWriter, r *http.Reques
 		case errors.Is(err, store.ErrInsufficientStock):
 			app.conflictResponse(w, r, err)
 		case errors.Is(err, store.ErrIdempotencyConflict):
+			app.unprocessableEntityResponse(w, r, err)
+		case errors.Is(err, store.ErrInvoiceStateConflict):
 			app.unprocessableEntityResponse(w, r, err)
 		default:
 			app.internalServerError(w, r, err)

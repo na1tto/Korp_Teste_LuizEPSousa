@@ -18,7 +18,7 @@ var (
 	errRouteNotFound          = errors.New("route not found")
 	errProductFieldsRequired  = errors.New("code, description and balance (>=0) fields are required")
 	errProductCodeConflict    = errors.New("a product with this code already exists")
-	errDeductionFieldsMissing = errors.New("request_id and at least one item are required")
+	errDeductionFieldsMissing = errors.New("invoice_id, request_id and at least one item are required")
 )
 
 // handling errors internaly through application functions

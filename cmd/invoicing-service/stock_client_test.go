@@ -19,6 +19,7 @@ func TestStockClientDeductStockMapsResponses(t *testing.T) {
 		{name: "success", status: http.StatusOK},
 		{name: "insufficient stock", status: http.StatusConflict, expected: ErrInsufficientStock},
 		{name: "missing product", status: http.StatusNotFound, expected: ErrProductNotFound},
+		{name: "invoice state conflict", status: http.StatusUnprocessableEntity, expected: ErrInvoiceStateConflict},
 	}
 
 	for _, tt := range tests {
@@ -31,12 +32,15 @@ func TestStockClientDeductStockMapsResponses(t *testing.T) {
 				if payload.RequestID != "invoice:42" {
 					t.Errorf("request_id = %q", payload.RequestID)
 				}
+				if payload.InvoiceID != 42 {
+					t.Errorf("invoice_id = %d", payload.InvoiceID)
+				}
 				w.WriteHeader(tt.status)
 			}))
 			defer server.Close()
 
 			client := NewStockclient(server.URL)
-			err := client.DeductStock(context.Background(), "invoice:42", []DeductItemRequest{{ProductID: 1, Quantity: 2}})
+			err := client.DeductStock(context.Background(), 42, "invoice:42", []DeductItemRequest{{ProductID: 1, Quantity: 2}})
 			if !errors.Is(err, tt.expected) {
 				t.Fatalf("expected %v, got %v", tt.expected, err)
 			}
@@ -54,7 +58,7 @@ func TestStockClientDeductStockMapsCommunicationFailure(t *testing.T) {
 	client := NewStockclient("http://stock.invalid")
 	client.httpClient.Transport = failingRoundTripper{}
 
-	err := client.DeductStock(context.Background(), "invoice:42", []DeductItemRequest{{ProductID: 1, Quantity: 2}})
+	err := client.DeductStock(context.Background(), 42, "invoice:42", []DeductItemRequest{{ProductID: 1, Quantity: 2}})
 	if !errors.Is(err, ErrStockServiceUnavailable) {
 		t.Fatalf("expected ErrStockServiceUnavailable, got %v", err)
 	}
