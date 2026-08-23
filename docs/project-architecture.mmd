@@ -1,0 +1,88 @@
+flowchart LR
+    user["Usuario"]
+
+    subgraph frontend["Camada de apresentacao - Angular"]
+        screens["Telas standalone<br/>Produtos e Notas Fiscais"]
+        lifecycle["Ciclo de vida<br/>ngOnInit"]
+        forms["Reactive Forms<br/>validacoes"]
+        rxjs["RxJS<br/>BehaviorSubject, Observable,<br/>forkJoin, switchMap,<br/>finalize, catchError"]
+        visual["Componentes visuais<br/>HTML + SCSS<br/>sem biblioteca externa"]
+    end
+
+    subgraph stock["Microsservico de Estoque - Go"]
+        stock_api["API REST<br/>go-chi"]
+        stock_handlers["Handlers<br/>produtos e baixa de estoque"]
+        stock_errors["Tratamento de erros<br/>400, 404, 409, 422, 500"]
+    end
+
+    subgraph invoicing["Microsservico de Faturamento - Go"]
+        invoice_api["API REST<br/>go-chi"]
+        invoice_handlers["Handlers<br/>notas fiscais"]
+        stock_client["Cliente HTTP interno<br/>timeout de 5s"]
+        invoice_errors["Tratamento de erros<br/>400, 404, 409, 422, 503, 500"]
+    end
+
+    subgraph persistence["Camada de persistencia - Go"]
+        store["internal/store<br/>database/sql"]
+        tx["Transacoes e concorrencia<br/>SELECT FOR UPDATE"]
+        idempotency["Idempotencia<br/>request_id + payload_hash"]
+    end
+
+    subgraph database["Banco de dados - PostgreSQL"]
+        products[("products<br/>cadastro e saldo")]
+        invoices[("invoices<br/>numero sequencial e status")]
+        items[("invoice_items<br/>produtos da nota")]
+        deductions[("stock_deductions<br/>baixas realizadas")]
+    end
+
+    subgraph deps["Dependencias e infraestrutura"]
+        gomod["Go Modules<br/>go.mod + go.sum"]
+        docker["Docker Compose<br/>PostgreSQL"]
+        libs["Bibliotecas Go<br/>chi, cors, zap,<br/>godotenv, lib/pq"]
+    end
+
+    user --> screens
+    screens --> lifecycle
+    screens --> forms
+    screens --> rxjs
+    screens --> visual
+
+    rxjs -->|"HTTP REST /v1/products"| stock_api
+    rxjs -->|"HTTP REST /v1/invoices"| invoice_api
+
+    stock_api --> stock_handlers
+    stock_handlers --> stock_errors
+    stock_handlers --> store
+
+    invoice_api --> invoice_handlers
+    invoice_handlers --> invoice_errors
+    invoice_handlers --> stock_client
+    stock_client -->|"POST /v1/products/deduct"| stock_api
+
+    store --> tx
+    tx --> products
+    tx --> invoices
+    tx --> items
+    tx --> deductions
+    tx --> idempotency
+
+    gomod --> stock_api
+    gomod --> invoice_api
+    libs --> stock_api
+    libs --> invoice_api
+    docker --> database
+
+    stock_client -. "falha do estoque" .-> invoice_errors
+    invoice_errors -. "feedback ao usuario<br/>nota permanece aberta<br/>nova tentativa segura" .-> rxjs
+
+    classDef req fill:#fff3cd,stroke:#b8860b,color:#3b2f00
+    classDef app fill:#e8f4ff,stroke:#2f6fad,color:#102a43
+    classDef service fill:#e8f8ef,stroke:#2f8f5b,color:#143d2a
+    classDef db fill:#f1ecff,stroke:#6b52ae,color:#241a45
+    classDef error fill:#ffecec,stroke:#b84a4a,color:#4a1111
+
+    class lifecycle,rxjs,visual,gomod,libs req
+    class screens,forms app
+    class stock_api,stock_handlers,invoice_api,invoice_handlers,stock_client,store,tx,idempotency service
+    class products,invoices,items,deductions,database db
+    class stock_errors,invoice_errors error
