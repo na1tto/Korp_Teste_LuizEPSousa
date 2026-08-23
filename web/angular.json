@@ -42,7 +42,9 @@
             "security": {
               "allowedHosts": []
             },
-            "ssr": false
+            "ssr": {
+              "entry": "src/server.ts"
+            }
           },
           "configurations": {
             "production": {
