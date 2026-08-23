@@ -1,0 +1,95 @@
+<div class="products-container">
+  <h2>Cadastro de Produtos</h2>
+
+  <!-- Feedbacks visuais -->
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    {{ errorMessage }}
+  </div>
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <!-- Form com Angular Reactive Forms -->
+  <form [formGroup]="productForm" (ngSubmit)="onSubmit()" class="product-form">
+    <div class="form-group">
+      <label for="code">Código *</label>
+      <input
+        id="code"
+        type="text"
+        formControlName="code"
+        placeholder="Ex: PROD001"
+        [class.is-invalid]="f['code'].touched && f['code'].invalid"
+      />
+      <small *ngIf="f['code'].touched && f['code'].errors?.['required']" class="error-text">
+        O código do produto é obrigatório.
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label for="description">Descrição *</label>
+      <input
+        id="description"
+        type="text"
+        formControlName="description"
+        placeholder="Ex: Teclado Mecânico RGB"
+        [class.is-invalid]="f['description'].touched && f['description'].invalid"
+      />
+      <small
+        *ngIf="f['description'].touched && f['description'].errors?.['required']"
+        class="error-text"
+      >
+        A descrição é obrigatória.
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label for="balance">Saldo em Estoque *</label>
+      <input
+        id="balance"
+        type="number"
+        formControlName="balance"
+        min="0"
+        [class.is-invalid]="f['balance'].touched && f['balance'].invalid"
+      />
+      <small *ngIf="f['balance'].touched && f['balance'].errors?.['min']" class="error-text">
+        O saldo deve ser maior ou igual a zero.
+      </small>
+    </div>
+
+    <button type="submit" [disabled]="productForm.invalid || isLoading" class="btn-submit">
+      <span *ngIf="!isLoading">Salvar Produto</span>
+      <span *ngIf="isLoading">Salvando...</span>
+    </button>
+  </form>
+
+  <hr />
+
+  <h3>Produtos Cadastrados</h3>
+
+  <!-- Tabela Reativa -->
+  <table class="products-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Código</th>
+        <th>Descrição</th>
+        <th>Saldo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let product of products$ | async">
+        <td>{{ product.id }}</td>
+        <td>{{ product.code }}</td>
+        <td>{{ product.description }}</td>
+        <td>
+          <span [class.out-of-stock]="product.balance === 0">
+            {{ product.balance }}
+          </span>
+        </td>
+      </tr>
+      <tr *ngIf="(products$ | async)?.length === 0">
+        <td colspan="4" class="empty-state">Nenhum produto cadastrado até o momento.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

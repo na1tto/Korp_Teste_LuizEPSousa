@@ -1,0 +1,219 @@
+.invoices-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    &.alert-danger {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    &.alert-success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+  }
+
+  .invoice-form {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+
+    .item-row {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+
+      .product-select {
+        flex: 2;
+      }
+      .quantity-input {
+        flex: 1;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        label {
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+          font-size: 0.85rem;
+        }
+        select,
+        input {
+          padding: 0.5rem;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+        }
+      }
+
+      .btn-remove {
+        padding: 0.5rem 0.75rem;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+
+      .btn-add {
+        padding: 0.5rem 1rem;
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .btn-submit {
+        padding: 0.5rem 1.5rem;
+        background-color: #198754;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        &:disabled {
+          background-color: #adb5bd;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+
+  .invoices-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+
+    th,
+    td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+    }
+    th {
+      background-color: #f8f9fa;
+    }
+
+    .status-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      &.status-open {
+        background-color: #fff3cd;
+        color: #664d03;
+      }
+      &.status-closed {
+        background-color: #d1e7dd;
+        color: #0f5132;
+      }
+    }
+
+    .actions-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .action-button {
+      padding: 0.4rem 0.8rem;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+
+      &:disabled {
+        background-color: #e0e0e0;
+        color: #888;
+        cursor: not-allowed;
+      }
+    }
+
+    .spinner-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid #ffffff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .btn-print {
+      background-color: #0d6efd;
+    }
+    .btn-delete,
+    .btn-confirm-delete {
+      background-color: #b42318;
+    }
+    .btn-cancel-delete {
+      background-color: #5f6b7a;
+    }
+
+    .delete-confirmation {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #6c757d;
+      font-style: italic;
+    }
+  }
+}
+
+@media (max-width: 760px) {
+  .invoices-container {
+    margin: 1rem auto;
+    padding: 1rem;
+    overflow-x: auto;
+
+    .invoice-form .item-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .invoices-table .actions-cell {
+      align-items: stretch;
+      flex-direction: column;
+      min-width: 170px;
+    }
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
