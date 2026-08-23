@@ -12,7 +12,7 @@ const version = "0.0.1"
 
 func main() {
 	cfg := serverConfig{
-		addr:   env.GetString("STOCK_ADDR", ":3001"),
+		addr:   env.GetServerAddr("STOCK_ADDR", ":3001"),
 		env:    env.GetString("ENV", "DEVELOPMENT"),
 		apiURL: env.GetString("STOCK_EXTERNAL_URL", "localhost:3001"),
 		db: dbConfig{

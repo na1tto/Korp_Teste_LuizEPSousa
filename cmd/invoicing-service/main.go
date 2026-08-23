@@ -12,7 +12,7 @@ const version = "0.0.1"
 
 func main() {
 	cfg := serverConfig{
-		addr:   env.GetString("INVOICING_ADDR", ":3002"),
+		addr:   env.GetServerAddr("INVOICING_ADDR", ":3002"),
 		env:    env.GetString("ENV", "DEVELOPMENT"),
 		apiURL: env.GetString("INVOICING_EXTERNAL_URL", "localhost:3002"),
 		db: dbConfig{

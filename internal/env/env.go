@@ -43,3 +43,11 @@ func GetBool(key string, fallback bool) bool {
 
 	return boolVal
 }
+
+// GCP port injection helper
+func GetServerAddr(envKey, defaultAddr string) string {
+	if port := os.Getenv("PORT"); port != "" {
+		return fmt.Sprintf(":%s", port)
+	}
+	return GetString(envKey, defaultAddr)
+}
