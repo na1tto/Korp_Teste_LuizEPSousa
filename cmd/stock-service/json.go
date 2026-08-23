@@ -2,7 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -19,9 +23,16 @@ func writeJson(w http.ResponseWriter, status int, data any) error {
 		return nil
 	}
 
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	payload = append(payload, '\n')
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return json.NewEncoder(w).Encode(data)
+	_, err = w.Write(payload)
+	return err
 }
 
 func readJson(w http.ResponseWriter, r *http.Request, data any) error {
@@ -31,7 +42,37 @@ func readJson(w http.ResponseWriter, r *http.Request, data any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
-	return decoder.Decode(data)
+	if err := decoder.Decode(data); err != nil {
+		var syntaxError *json.SyntaxError
+		var typeError *json.UnmarshalTypeError
+		var maxBytesError *http.MaxBytesError
+
+		switch {
+		case errors.Is(err, io.EOF):
+			return errors.New("request body must not be empty")
+		case errors.Is(err, io.ErrUnexpectedEOF):
+			return errors.New("request body contains malformed JSON")
+		case errors.As(err, &syntaxError):
+			return fmt.Errorf("request body contains malformed JSON at position %d", syntaxError.Offset)
+		case errors.As(err, &typeError):
+			if typeError.Field != "" {
+				return fmt.Errorf("request body contains an invalid value for field %q", typeError.Field)
+			}
+			return errors.New("request body contains an invalid JSON value")
+		case errors.As(err, &maxBytesError):
+			return fmt.Errorf("request body must not exceed %d bytes", maxBytesError.Limit)
+		case strings.HasPrefix(err.Error(), "json: unknown field "):
+			return fmt.Errorf("request body contains unknown field %s", strings.TrimPrefix(err.Error(), "json: unknown field "))
+		default:
+			return errors.New("request body contains invalid JSON")
+		}
+	}
+
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("request body must contain a single JSON value")
+	}
+
+	return nil
 }
 
 // we want to return our errors in the json format as well
