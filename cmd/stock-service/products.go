@@ -21,7 +21,7 @@ func (app *application) createProductHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if payload.Code == "" || payload.Description == "" || payload.Balance < 0 {
-		app.badRequestResponse(w, r, errors.New("code, description and balance (>=0) fields are required"))
+		app.badRequestResponse(w, r, errProductFieldsRequired)
 		return
 	}
 
@@ -33,6 +33,10 @@ func (app *application) createProductHandler(w http.ResponseWriter, r *http.Requ
 
 	ctx := r.Context()
 	if err := app.store.Products.Create(ctx, product); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			app.conflictResponse(w, r, errProductCodeConflict)
+			return
+		}
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -66,10 +70,11 @@ func (app *application) listProductsHandler(w http.ResponseWriter, r *http.Reque
 }
 
 type DeductStockPayload struct {
-	Items []DeductItemPayload `json:"items"`
+	RequestID string              `json:"request_id"`
+	Items     []DeductItemPayload `json:"items"`
 }
 
-// Endpoint consumido internamente pelo Invoicing Service durante a impressão
+// Endpoint consumed internally by the Invoicing Service during printing.
 func (app *application) deductStockHandler(w http.ResponseWriter, r *http.Request) {
 	var payload DeductStockPayload
 	if err := readJson(w, r, &payload); err != nil {
@@ -77,21 +82,31 @@ func (app *application) deductStockHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if len(payload.Items) == 0 {
-		app.badRequestResponse(w, r, errors.New("the list cannot be empty"))
+	if payload.RequestID == "" || len(payload.Items) == 0 {
+		app.badRequestResponse(w, r, errDeductionFieldsMissing)
 		return
 	}
 
+	items := make([]store.StockDeduction, len(payload.Items))
+	for i, item := range payload.Items {
+		items[i] = store.StockDeduction{ProductID: item.ProductID, Quantity: item.Quantity}
+	}
+
 	ctx := r.Context()
-	for _, item := range payload.Items {
-		if err := app.store.Products.DeductStock(ctx, item.ProductID, item.Quantity); err != nil {
-			if errors.Is(err, store.ErrInsufficientStock) {
-				app.conflictResponse(w, r, err)
-				return
-			}
+	if err := app.store.Products.DeductStock(ctx, payload.RequestID, items); err != nil {
+		switch {
+		case errors.Is(err, store.ErrInvalidDeduction):
+			app.badRequestResponse(w, r, err)
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+		case errors.Is(err, store.ErrInsufficientStock):
+			app.conflictResponse(w, r, err)
+		case errors.Is(err, store.ErrIdempotencyConflict):
+			app.unprocessableEntityResponse(w, r, err)
+		default:
 			app.internalServerError(w, r, err)
-			return
 		}
+		return
 	}
 
 	if err := app.jsonResponse(w, http.StatusOK, map[string]string{"message": "stock successfully deducted"}); err != nil {
