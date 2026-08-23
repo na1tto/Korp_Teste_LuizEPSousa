@@ -38,7 +38,7 @@ func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Timeout(60 * time.Second))
-	r.Use(middleware.Recoverer)
+	r.Use(app.recoverPanic)
 	r.Use(middleware.Logger)
 
 	r.Use(cors.Handler(cors.Options{
@@ -60,6 +60,11 @@ func (app *application) mount() http.Handler {
 		})
 	})
 
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		app.notFoundResponse(w, r, errRouteNotFound)
+	})
+	r.MethodNotAllowed(app.methodNotAllowedResponse)
+
 	return r
 }
 
@@ -76,15 +81,8 @@ func (app *application) run(mux http.Handler) error {
 	app.logger.Infow("invoicing server has started at port", "addr", app.config.apiURL, "env", app.config.env)
 	err := srv.ListenAndServe()
 
-	if !errors.Is(err, http.ErrServerClosed) {
-		return err
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
 	}
-
-	if err != nil {
-		return err
-	}
-
-	app.logger.Infow("invoicing server has stopped", "addr", app.config.addr, "env", app.config.env)
-
-	return nil
+	return err
 }

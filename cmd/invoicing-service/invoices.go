@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -26,14 +27,14 @@ func (app *application) createInvoiceHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	if len(payload.Items) == 0 {
-		app.badRequestResponse(w, r, errors.New("the invoice must contain at least one item"))
+		app.badRequestResponse(w, r, errInvoiceItemsEmpty)
 		return
 	}
 
 	items := make([]store.InvoiceItem, len(payload.Items))
 	for i, item := range payload.Items {
 		if item.ProductID <= 0 || item.Quantity <= 0 {
-			app.badRequestResponse(w, r, errors.New("each item must have a valid product_id and quantity"))
+			app.badRequestResponse(w, r, errInvoiceItemInvalid)
 			return
 		}
 		items[i] = store.InvoiceItem{
@@ -80,7 +81,7 @@ func (app *application) getInvoiceHandler(w http.ResponseWriter, r *http.Request
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		app.badRequestResponse(w, r, errors.New("invalid id"))
+		app.badRequestResponse(w, r, errInvalidInvoiceID)
 		return
 	}
 
@@ -105,7 +106,7 @@ func (app *application) printInvoiceHandler(w http.ResponseWriter, r *http.Reque
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		app.badRequestResponse(w, r, errors.New("invalid id"))
+		app.badRequestResponse(w, r, errInvalidInvoiceID)
 		return
 	}
 
@@ -122,7 +123,7 @@ func (app *application) printInvoiceHandler(w http.ResponseWriter, r *http.Reque
 
 	// 1: Do not allow printing of notes that are not open.
 	if inv.Status != "Open" {
-		app.badRequestResponse(w, r, errors.New("only invoices with the status 'Open' can be printed"))
+		app.badRequestResponse(w, r, errInvoiceNotOpen)
 		return
 	}
 
@@ -136,14 +137,18 @@ func (app *application) printInvoiceHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	// 2: Performs inventory write-offs with error handling.
-	if err := app.stockClient.DeductStock(ctx, deductItems); err != nil {
+	requestID := fmt.Sprintf("invoice:%d", inv.ID)
+	if err := app.stockClient.DeductStock(ctx, requestID, deductItems); err != nil {
 		if errors.Is(err, ErrInsufficientStock) {
-			app.conflictResponse(w, r, errors.New("the invoice could not be issued: insufficient stock"))
+			app.conflictResponse(w, r, errInvoiceStock)
 			return
 		}
 		if errors.Is(err, ErrStockServiceUnavailable) {
-			// Explicit treatment of resilience: invoice remains Open
-			writeJsonError(w, http.StatusServiceUnavailable, "communication with the inventory service failed. The order status remains Open")
+			app.serviceUnavailableResponse(w, r, err, messageStockUnavailable)
+			return
+		}
+		if errors.Is(err, ErrProductNotFound) {
+			app.unprocessableEntityResponse(w, r, errInvoiceProductGone)
 			return
 		}
 		app.internalServerError(w, r, err)
@@ -152,6 +157,10 @@ func (app *application) printInvoiceHandler(w http.ResponseWriter, r *http.Reque
 
 	// 3: Update invoice status to 'Closed'
 	if err := app.store.Invoices.UpdateStatus(ctx, id, "Closed"); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			app.conflictResponse(w, r, errInvoiceStateChanged)
+			return
+		}
 		app.internalServerError(w, r, err)
 		return
 	}

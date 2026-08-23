@@ -21,7 +21,7 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
-		stockClientBaseURL: env.GetString("STOCK_EXTERNAL_URL", "localhost:3002"),
+		stockClientBaseURL: env.GetString("STOCK_EXTERNAL_URL", "http://localhost:3001"),
 	}
 
 	logger := zap.Must(zap.NewProduction()).Sugar()
@@ -37,6 +37,7 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	defer db.Close()
 
 	store := store.NewStorage(db)
 
@@ -50,5 +51,7 @@ func main() {
 	}
 
 	mux := app.mount()
-	logger.Fatal(app.run(mux))
+	if err := app.run(mux); err != nil {
+		logger.Fatal(err)
+	}
 }
